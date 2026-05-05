@@ -19,16 +19,16 @@ def load_index(folder):
 
 # Rechercher les k chunks les plus pertinents pour une question
 def search(question, model, index, chunks, k=4):
-    # Étape 1 : transformer la question en vecteur
+    # Transformer la question en vecteur
     question_vector = model.encode([question]).astype(np.float32)
     
-    # Étape 2 : normaliser (obligatoire car on a utilisé IndexFlatIP: similarité cosinus)
+    # Normaliser (obligatoire car on a utilisé IndexFlatIP : similarité cosinus)
     faiss.normalize_L2(question_vector)
     
-    # Étape 3 : rechercher les k vecteurs les plus proches
+    # Rechercher les k vecteurs les plus proches
     scores, indices = index.search(question_vector, k)
     
-    # Étape 4 : récupérer les chunks correspondants
+    # Récupérer les chunks correspondants
     results = []
     for score, idx in zip(scores[0], indices[0]):
         if idx == -1:
@@ -78,31 +78,30 @@ Règles :
     
     return response.choices[0].message.content
 
-
 # Point d'entrée principal — boucle interactive de questions-réponses
 def main():
     print("=" * 50)
-    print(" ASSISTANT CODE DU TRAVAIL")
+    print("  ASSISTANT CODE DU TRAVAIL")
     print("=" * 50)
 
     # Vérification de la clé API
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
-        print("Erreur : clé API Groq manquante dans le fichier .env")
+        print("Erreur : cle API Groq manquante dans le fichier .env")
         return
 
-    # Chargement de l'index et du modèle
+    # Chargement de l'index et du modele
     print("\nLoading knowledge base...")
     index, chunks = load_index("index")
     model = SentenceTransformer("paraphrase-multilingual-mpnet-base-v2")
     client = Groq(api_key=api_key)
 
-    print("\n System ready. Type 'quit' to exit.\n")
+    print("\nSystem ready. Type 'quit' to exit.\n")
     print("-" * 50)
 
     # Boucle interactive
     while True:
-        question = input("\n Your question : ").strip()
+        question = input("\nYour question : ").strip()
 
         if question.lower() in ["quit", "exit", "q"]:
             print("Au revoir !")
@@ -111,18 +110,24 @@ def main():
         if not question:
             continue
 
-        # Étape 1 : recherche des chunks pertinents
-        print("\n Searching...")
+        # Etape 1 : recherche des chunks pertinents
+        print("\nSearching...")
         results = search(question, model, index, chunks, k=4)
 
-        # Étape 2 : génération de la réponse
-        print(" Generating response...\n")
+        # verification du score de confiance
+        best_score = results[0]["score"] if results else 0
+        if best_score < 0.45:
+            print(f"Warning : no directly relevant article found (best score : {best_score:.2f})")
+            print("The response may be imprecise or off-topic.\n")
+
+        # Etape 2 : generation de la reponse
+        print("Generating response...\n")
         response = generate_response(client, question, results)
 
-        # Étape 3 : affichage
+        # Etape 3 : affichage
         print("-" * 50)
         print(response)
-        print("\n Sources :")
+        print("\nSources :")
         for i, result in enumerate(results, 1):
             meta = result["metadata"]
             print(f"  [{i}] Art. {meta['article']} — {meta['titre']} (score : {result['score']:.2f})")
