@@ -1,4 +1,4 @@
-# rag_code_travail# Assistant Code du Travail — RAG
+# Assistant Code du Travail — RAG
 
 ## Description
 Un agent qui répond à des questions sur le Code du travail français en utilisant le système RAG (Retrieval-Augmented Generation). Il recherche les articles pertinents dans une base vectorielle FAISS et génère une réponse via le LLM Groq.
