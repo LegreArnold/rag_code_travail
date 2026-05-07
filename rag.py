@@ -1,4 +1,5 @@
 import os
+from prompt import SYSTEM_PROMPT, build_context
 import json
 import numpy as np
 import faiss
@@ -41,41 +42,21 @@ def search(question, model, index, chunks, k=4):
     
     return results
 
-# Construire le contexte à partir des chunks pertinents
-def build_context(results):
-    context = "=== Articles du Code du travail pertinents ===\n\n"
-    for i, result in enumerate(results, 1):
-        meta = result["metadata"]
-        context += (
-            f"[Source {i}] Article {meta['article']} — {meta['titre']}\n"
-            f"{result['content']}\n\n"
-        )
-    return context
-
 # Générer la réponse via l'API Groq
 def generate_response(client, question, results):
     context = build_context(results)
-    
-    system_prompt = """Tu es un assistant juridique spécialisé dans le Code du travail français.
-Tu réponds UNIQUEMENT en te basant sur les articles fournis dans le contexte.
-Règles :
-1. Cite toujours le numéro d'article (ex: "Selon l'article L3121-27...")
-2. Si la réponse n'est pas dans le contexte, dis-le clairement
-3. Termine TOUJOURS par : "Cet assistant ne fournit pas de conseil juridique. Consultez un avocat ou l'inspection du travail pour votre situation personnelle."
-"""
 
     user_prompt = f"{context}\nQuestion : {question}"
     
     response = client.chat.completions.create(
         model="llama-3.3-70b-versatile",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": SYSTEM_PROMPT},
             {"role": "user", "content": user_prompt}
         ],
         temperature=0.1,
         max_tokens=1000
     )
-    
     return response.choices[0].message.content
 
 # Point d'entrée principal — boucle interactive de questions-réponses
@@ -114,7 +95,7 @@ def main():
         print("\nSearching...")
         results = search(question, model, index, chunks, k=4)
 
-        # verification du score de confiance
+        # Verification du score de confiance
         best_score = results[0]["score"] if results else 0
         if best_score < 0.45:
             print(f"Warning : no directly relevant article found (best score : {best_score:.2f})")
